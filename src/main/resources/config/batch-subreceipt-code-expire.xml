@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--suppress SpringFacetInspection, SpringModelInspection -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:batch="http://www.springframework.org/schema/batch"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:task="http://www.springframework.org/schema/task"
+       xsi:schemaLocation="http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch.xsd
+	http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task.xsd">
+
+    <bean class="org.springframework.batch.core.scope.StepScope"/>
+
+    <!-- 根据国家ID更新所有商户的小票关注码 -->
+    <batch:job id="subReceiptCodeExpiresJob">
+        <batch:step id="subReceiptCodeExpiresStep">
+            <batch:tasklet>
+                <batch:chunk reader="subReceiptCodeExpiresReader"
+                             writer="subReceiptCodeExpiresWriter"
+                             processor="subReceiptCodeExpiresProcessor"
+                             commit-interval="1"
+                             processor-transactional="true">
+                </batch:chunk>
+            </batch:tasklet>
+        </batch:step>
+    </batch:job>
+
+    <!-- 多个商户通道批处理 -->
+    <bean id="subReceiptCodeExpiresReader" class="org.springframework.batch.item.database.JpaPagingItemReader" scope="step">
+        <property name="pageSize" value="20"/>
+        <property name="parameterValues">
+            <map>
+                <entry key="countryId" value="#{jobParameters[countryId]}"/>
+            </map>
+        </property>
+        <property name="queryString"
+                  value="SELECT e FROM EntityMerchant e WHERE e.district.city.country.id = :countryId"/>
+        <property name="entityManagerFactory" ref="entityManagerFactory"/>
+    </bean>
+
+    <!-- 生成商户生成/更新小票关注码 -->
+    <bean id="subReceiptCodeExpiresProcessor" class="com.nuanyou.merchant.batch.processor.integration.SubReceiptCodeExpireChannel"/>
+
+    <!-- 数据输出 -->
+    <bean id="subReceiptCodeExpiresWriter" class="org.springframework.batch.item.database.JpaItemWriter">
+        <property name="entityManagerFactory" ref="entityManagerFactory"/>
+    </bean>
+
+    <bean id="subReceiptCodeExpireScheduler" class="com.nuanyou.merchant.batch.scheduler.SubReceiptCountryScheduler">
+        <property name="job" ref="subReceiptCodeExpiresJob"/>
+    </bean>
+
+    <task:scheduled-tasks>
+        <task:scheduled ref="subReceiptCodeExpireScheduler" method="startJob" cron="${scheduler.subReceiptCodeExpireScheduler}"/>
+    </task:scheduled-tasks>
+
+</beans>

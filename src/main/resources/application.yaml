@@ -1,0 +1,46 @@
+spring:
+  datasource:
+    url: jdbc:mysql://rdsw9r566jxer973wqi2.mysql.rds.aliyuncs.com:3306/nuanyou20?useUnicode=true&characterEncoding=UTF-8
+    driverClassName : com.mysql.jdbc.Driver
+    username: dev
+    password: 1qaz2wsxE
+    test-on-borrow: true
+    validation-query: select 1
+
+  jpa:
+    database: MYSQL
+    show-sql: false
+    hibernate:
+      ddl-auto: none
+
+  batch:
+      job:
+        enabled: false
+
+server:
+  port: 8093
+
+swagger:
+  domain: 127.0.0.1:8093
+
+s3:
+  region: ap-northeast-2
+  bucket: nuanyou-dev-ap-northeast-2
+  userSubReceiptPrint: content/seller_pal/print/user_reciept/
+  mchSubReceiptPrint: content/seller_pal/print/mch_reciept/
+  userSubReceiptTemplate: receiptTemplate/user_reciept/
+  mchSubReceiptTemplate: receiptTemplate/mch_reciept/
+
+jobCountries: 7,8
+
+scheduler:
+  subReceiptCodeScheduler: 00 00 22 * * ?
+  subReceiptCodeDocScheduler: 00 10 22 * * ?
+  subReceiptCodeExpireScheduler: 00 20 22 * * ?
+  subReceiptPrintScheduler: 00 30 22 * * ?
+
+nuanyou:
+  domain: http://testuser.api.91nuanyou.com
+
+common:
+  domain: http://test.common.91nuanyou.com

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:batch="http://www.springframework.org/schema/batch"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xsi:schemaLocation="http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch.xsd
+	http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd">
+
+    <bean class="org.springframework.batch.core.scope.StepScope"/>
+
+    <int:channel id="subReceiptCodeJobInputChannel">
+        <int:queue capacity="10"/>
+    </int:channel>
+
+    <int:transformer input-channel="subReceiptCodeJobInputChannel" output-channel="jobRequestChannel">
+        <bean class="com.nuanyou.merchant.batch.transformer.SubReceiptRequestTransformer">
+            <property name="job" ref="subReceiptCodeJob"/>
+        </bean>
+        <int:poller fixed-rate="1000"/>
+    </int:transformer>
+
+    <!-- 根据商户ID更新单个商户收银小票S3模板 -->
+    <batch:job id="subReceiptCodeJob">
+        <batch:step id="subReceiptCodeStep">
+            <batch:tasklet>
+                <batch:chunk reader="subReceiptCodeReader"
+                             writer="subReceiptCodeWriter"
+                             processor="subReceiptCodeProcessor"
+                             commit-interval="1"
+                             processor-transactional="true">
+                </batch:chunk>
+            </batch:tasklet>
+            <batch:listeners>
+                <batch:listener ref="subReceiptCodeListener"/>
+            </batch:listeners>
+        </batch:step>
+    </batch:job>
+
+    <!-- 写完数据监听器 -->
+    <bean id="subReceiptCodeListener" class="com.nuanyou.merchant.batch.listener.SubReceiptCodeListener"/>
+
+    <!-- 单个商户读取 -->
+    <bean id="subReceiptCodeReader" class="org.springframework.batch.item.database.JpaPagingItemReader" scope="step">
+        <property name="pageSize" value="1"/>
+        <property name="parameterValues">
+            <map>
+                <entry key="merchantId" value="#{jobParameters[merchantId]}"/>
+            </map>
+        </property>
+        <property name="queryString" value="SELECT e FROM EntityMerchant e WHERE e.id = :merchantId"/>
+        <property name="entityManagerFactory" ref="entityManagerFactory"/>
+    </bean>
+
+    <!-- 生成商户生成/更新小票关注码 -->
+    <bean id="subReceiptCodeProcessor" class="com.nuanyou.merchant.batch.processor.SubReceiptCodeProcessor"
+          scope="step"/>
+
+    <!-- 数据输出 -->
+    <bean id="subReceiptCodeWriter" class="org.springframework.batch.item.database.JpaItemWriter">
+        <property name="entityManagerFactory" ref="entityManagerFactory"/>
+    </bean>
+
+</beans>
